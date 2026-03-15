@@ -84,11 +84,10 @@ class AppWindow(QMainWindow):
             widget.back_requested.connect(self.show_dashboard)
             return widget
 
-        # Módulos futuros:
-        # if module_id == "curator":
-        #     from modules.gui.curator_window import CuratorWidget
-        #     widget = CuratorWidget()
-        #     widget.back_requested.connect(self.show_dashboard)
-        #     return widget
+        if module_id == "curator":
+            from modules.gui.curator_window import CuratorWidget
+            widget = CuratorWidget()
+            widget.back_requested.connect(self.show_dashboard)
+            return widget
 
         return None

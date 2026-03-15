@@ -24,7 +24,7 @@ from modules.core.i18n   import t
 # Cada entrada: (module_id, i18n_name_key, i18n_desc_key, available)
 _MODULES = [
     ("scraper", "module.scraper.name", "module.scraper.desc", True),
-    ("curator", "module.curator.name", "module.curator.desc", False),
+    ("curator", "module.curator.name", "module.curator.desc", True),
 ]
 
 
