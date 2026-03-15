@@ -1,0 +1,24 @@
+{
+  "name": "Gravity Falls",
+  "base_url": "https://gravityfalls.fandom.com",
+  "transcript_categories": [
+    "Category:Transcripts"
+  ],
+  "dialogue_format": "auto",
+  "rate_limit_seconds": 0.5,
+  "language": "en",
+  "character_aliases": {
+    "Dipper": ["Dipper", "Dipper Pines", "Mason Pines"],
+    "Mabel": ["Mabel", "Mabel Pines"],
+    "Grunkle Stan": ["Stan", "Grunkle Stan", "Stanley Pines"],
+    "Ford": ["Ford", "Grunkle Ford", "Stanford Pines"],
+    "Soos": ["Soos", "Jesus Alzamirano Ramirez"]
+  },
+  "personality": "",
+  "system_prompt_fields": {
+    "character": true,
+    "show": true,
+    "aliases": true,
+    "personality": true
+  }
+}

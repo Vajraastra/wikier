@@ -1,0 +1,36 @@
+{
+  "_meta": {
+    "lang": "es",
+    "name": "Español",
+    "version": "1"
+  },
+
+  "lang.es": "Español",
+  "lang.en": "English",
+
+  "app.name":    "Wikier",
+  "app.tagline": "Dataset Factory",
+  "app.version": "v0.2-dev",
+
+  "dashboard.welcome":  "Seleccioná un módulo",
+  "dashboard.subtitle": "¿Con qué querés trabajar hoy?",
+
+  "module.scraper.name": "Fandom Scraper",
+  "module.scraper.desc": "Extrae y procesa diálogos desde wikis de Fandom para datasets de fine-tuning de LLMs.",
+
+  "module.curator.name": "Curator",
+  "module.curator.desc": "Curación avanzada de datasets: clasificación, limpieza, deduplicación y formateo para entrenamiento.",
+
+  "btn.open":         "Abrir",
+  "btn.back_modules": "← Módulos",
+
+  "label.coming_soon": "Próximamente",
+  "label.language":    "Idioma",
+  "label.theme":       "Tema",
+  "label.restart_required": "Reiniciá la app para aplicar el idioma.",
+
+  "theme.default": "Oscuro",
+  "theme.light":   "Claro",
+
+  "status.ready": "Listo"
+}

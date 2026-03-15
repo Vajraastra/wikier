@@ -1,0 +1,24 @@
+{
+  "name": "Miraculous Ladybug",
+  "base_url": "https://miraculousladybug.fandom.com",
+  "transcript_categories": [
+    "Category:Episode transcripts"
+  ],
+  "dialogue_format": "auto",
+  "rate_limit_seconds": 0.5,
+  "language": "en",
+  "character_aliases": {
+    "Marinette": ["Marinette", "Marinette Dupain-Cheng", "Ladybug", "Bridgette"],
+    "Adrien": ["Adrien", "Adrien Agreste", "Chat Noir", "Cat Noir"],
+    "Alya": ["Alya", "Alya Césaire", "Rena Rouge"],
+    "Nino": ["Nino", "Nino Lahiffe", "Carapace"],
+    "Luka": ["Luka", "Luka Couffaine", "Viperion"]
+  },
+  "personality": "",
+  "system_prompt_fields": {
+    "character": true,
+    "show": true,
+    "aliases": true,
+    "personality": true
+  }
+}

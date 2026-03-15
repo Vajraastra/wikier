@@ -1,0 +1,33 @@
+{
+  "name": "My Little Pony FiM",
+  "base_url": "https://mlp.fandom.com",
+  "transcript_categories": [
+    "Category:Season 1 transcripts",
+    "Category:Season 2 transcripts",
+    "Category:Season 3 transcripts",
+    "Category:Season 4 transcripts",
+    "Category:Season 5 transcripts",
+    "Category:Season 6 transcripts",
+    "Category:Season 7 transcripts",
+    "Category:Season 8 transcripts",
+    "Category:Season 9 transcripts"
+  ],
+  "dialogue_format": "auto",
+  "rate_limit_seconds": 0.5,
+  "language": "en",
+  "character_aliases": {
+    "Twilight Sparkle": ["Twilight Sparkle", "Twilight", "Princess Twilight"],
+    "Rainbow Dash": ["Rainbow Dash", "Rainbow"],
+    "Pinkie Pie": ["Pinkie Pie", "Pinkie"],
+    "Rarity": ["Rarity"],
+    "Applejack": ["Applejack", "AJ"],
+    "Fluttershy": ["Fluttershy"]
+  },
+  "personality": "",
+  "system_prompt_fields": {
+    "character": true,
+    "show": true,
+    "aliases": true,
+    "personality": true
+  }
+}

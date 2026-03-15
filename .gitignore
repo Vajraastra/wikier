@@ -1,0 +1,25 @@
+# Entorno virtual
+.venv/
+
+# Python
+__pycache__/
+*.py[cod]
+
+# Cache HTTP del scraper
+.cache/
+
+# Índices generados (se reconstruyen con --rebuild)
+# No: se guardan para evitar re-scraping
+
+# Outputs generados
+output/
+
+# Configuración de usuario (idioma, tema)
+.settings.json
+
+# Claude Code
+.claude/
+
+# Sistema
+.DS_Store
+Thumbs.db
