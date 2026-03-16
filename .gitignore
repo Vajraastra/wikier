@@ -1,6 +1,9 @@
 # Entorno virtual
 .venv/
 
+# Herramientas locales (uv — descargado automáticamente por run.sh)
+.tools/
+
 # Python
 __pycache__/
 *.py[cod]

@@ -180,6 +180,72 @@ def build_index(
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Character roster
+# ─────────────────────────────────────────────────────────────────────────────
+
+def export_character_roster(
+    profile: dict,
+    index: dict,
+    character: str,
+    output_dir,
+):
+    """
+    Genera {Character}_characters.json en output_dir.
+
+    Combina los aliases del perfil JSON con los speakers del índice para
+    construir la lista de personajes secundarios que usará el name_tagger.
+
+    Args:
+        profile:     Perfil JSON del wiki (character_aliases, language, ...).
+        index:       Índice de speakers generado por build_index.
+        character:   Nombre canónico del personaje principal.
+        output_dir:  Directorio donde se escribe el roster (str o Path).
+
+    Returns:
+        Path al archivo generado.
+    """
+    from pathlib import Path as _Path
+
+    output_dir = _Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    aliases_map: dict = profile.get("character_aliases", {})
+
+    # Aliases del personaje principal (busca coincidencia case-insensitive)
+    main_aliases: list[str] = []
+    for char_name, alias_list in aliases_map.items():
+        if char_name.lower() == character.lower():
+            main_aliases = alias_list
+            break
+    if not main_aliases:
+        main_aliases = [character]
+
+    main_lower = {a.lower() for a in main_aliases}
+
+    # Personajes secundarios: speakers del índice que no son el principal
+    all_speakers: dict[str, int] = index.get("speakers", {})
+    supporting: dict[str, list[str]] = {}
+    for speaker in all_speakers:
+        if speaker.lower() not in main_lower:
+            # Usa aliases del perfil si existen; si no, solo el nombre
+            supporting[speaker] = aliases_map.get(speaker, [speaker])
+
+    roster = {
+        "main_character":        character,
+        "main_aliases":          main_aliases,
+        "language":              profile.get("language", "en"),
+        "supporting_characters": supporting,
+    }
+
+    char_slug = character.replace(" ", "_")
+    out_path = output_dir / f"{char_slug}_characters.json"
+    with open(out_path, "w", encoding="utf-8") as f:
+        json.dump(roster, f, indent=2, ensure_ascii=False)
+
+    return out_path
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Presentación (modo CLI)
 # ─────────────────────────────────────────────────────────────────────────────
 

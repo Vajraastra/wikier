@@ -13,7 +13,7 @@ from PySide6.QtCore import QThread, Signal
 from modules.scraper.fetcher import get_wikitext, setup_cache
 from modules.scraper.parser import parse_dialogue
 from modules.scraper.filter import filter_character
-from modules.scraper.discovery import build_index, load_index, delete_index
+from modules.scraper.discovery import build_index, load_index, delete_index, export_character_roster
 from modules.scraper.exporter import export
 from modules.scraper.config import OUTPUT_DIR
 
@@ -164,6 +164,7 @@ class ExtractWorker(QThread):
         rate_limit:      float,
         format_hint:     str       = "auto",
         formats:         list[str] | None = None,
+        profile:         dict      | None = None,
     ):
         super().__init__()
         self.index           = index
@@ -174,6 +175,7 @@ class ExtractWorker(QThread):
         self.rate_limit      = rate_limit
         self.format_hint     = format_hint
         self.formats         = formats or ["jsonl"]
+        self.profile         = profile or {}
 
     def run(self) -> None:
         try:
@@ -211,6 +213,10 @@ class ExtractWorker(QThread):
 
             if all_pairs:
                 export(all_pairs, out_path, self.formats)
+                # Generar roster de personajes para el name_tagger
+                export_character_roster(
+                    self.profile, self.index, self.character, out_dir
+                )
 
             self.finished.emit(all_pairs, str(out_dir))
 

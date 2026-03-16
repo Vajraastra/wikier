@@ -90,4 +90,16 @@ class AppWindow(QMainWindow):
             widget.back_requested.connect(self.show_dashboard)
             return widget
 
+        if module_id == "joiner":
+            from modules.gui.joiner_window import JoinerWidget
+            widget = JoinerWidget()
+            widget.back_requested.connect(self.show_dashboard)
+            return widget
+
+        if module_id == "editor":
+            from modules.gui.editor_window import EditorWidget
+            widget = EditorWidget()
+            widget.back_requested.connect(self.show_dashboard)
+            return widget
+
         return None

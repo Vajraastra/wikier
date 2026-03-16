@@ -21,6 +21,12 @@
   "module.curator.name": "Curator",
   "module.curator.desc": "Advanced dataset curation: classification, cleaning, deduplication, and formatting for model training.",
 
+  "module.joiner.name": "Joiner",
+  "module.joiner.desc": "Combine and convert curated datasets: objective-based merge, format conversion, shuffle, and train/val/test split.",
+
+  "module.editor.name": "Dataset Editor",
+  "module.editor.desc": "Manually review and edit dataset entries: fill in instructions, fix responses, search and replace text.",
+
   "btn.open":         "Open",
   "btn.back_modules": "← Modules",
 

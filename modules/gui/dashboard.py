@@ -25,6 +25,8 @@ from modules.core.i18n   import t
 _MODULES = [
     ("scraper", "module.scraper.name", "module.scraper.desc", True),
     ("curator", "module.curator.name", "module.curator.desc", True),
+    ("joiner",  "module.joiner.name",  "module.joiner.desc",  True),
+    ("editor",  "module.editor.name",  "module.editor.desc",  True),
 ]
 
 

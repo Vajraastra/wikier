@@ -21,6 +21,8 @@ from PySide6.QtWidgets import (
 
 from modules.scraper.config import OUTPUT_DIR
 from modules.curator.curator import CuratorConfig
+from modules.curator.name_tagger import TAG_PRESETS, find_roster
+from modules.core.spacy_manager import is_installed
 from modules.gui.workers.curator_worker import CuratorWorker
 
 
@@ -165,7 +167,156 @@ class CuratorPanel(QWidget):
 
         root.addWidget(grp_config)
 
-        # ── Sección 3: Acción ─────────────────────────────────────────────────
+        # ── Sección 3: Name Tagger ────────────────────────────────────────────
+        grp_tagger = QGroupBox("Anonimizar personajes (Name Tagger)")
+        lay_tagger = QVBoxLayout(grp_tagger)
+        lay_tagger.setSpacing(8)
+
+        # Checkbox principal
+        row_tagger_chk = QHBoxLayout()
+        self._tagger_check = QCheckBox("Activar Name Tagger")
+        self._tagger_check.setChecked(False)
+        self._tagger_check.toggled.connect(self._on_tagger_toggled)
+        row_tagger_chk.addWidget(self._tagger_check)
+        row_tagger_chk.addStretch()
+        lay_tagger.addLayout(row_tagger_chk)
+
+        # Explicación
+        lbl_tagger_desc = QLabel(
+            "Reemplaza nombres de personajes secundarios por tags genéricos "
+            "({{user}} para interlocutores, {{char}} para referencias a terceros). "
+            "El personaje principal nunca se reemplaza. "
+            "Objetivo: transferir estilo comunicativo sin bagaje histórico del personaje."
+        )
+        lbl_tagger_desc.setWordWrap(True)
+        lbl_tagger_desc.setObjectName("help-text")
+        lay_tagger.addWidget(lbl_tagger_desc)
+
+        # Contenedor de opciones (se oculta cuando está desmarcado)
+        self._tagger_options = QWidget()
+        lay_tagger_opts = QVBoxLayout(self._tagger_options)
+        lay_tagger_opts.setContentsMargins(0, 0, 0, 0)
+        lay_tagger_opts.setSpacing(6)
+
+        # Preset de tags
+        row_preset = QHBoxLayout()
+        row_preset.addWidget(QLabel("Preset de tags:"))
+        self._preset_combo = QComboBox()
+        for label, key in [
+            ("SillyTavern  ({{user}} / {{char}})", "sillytavern"),
+            ("Oobabooga    (<|user|> / <|bot|>)",  "oobabooga"),
+            ("Genérico      ([USER] / [CHAR])",     "generic"),
+            ("Personalizado",                        "custom"),
+        ]:
+            self._preset_combo.addItem(label, key)
+        self._preset_combo.currentIndexChanged.connect(self._on_preset_changed)
+        row_preset.addWidget(self._preset_combo)
+        row_preset.addStretch()
+        lay_tagger_opts.addLayout(row_preset)
+
+        # Campos personalizados (solo visible cuando preset = "custom")
+        self._custom_tags_widget = QWidget()
+        lay_custom = QHBoxLayout(self._custom_tags_widget)
+        lay_custom.setContentsMargins(0, 0, 0, 0)
+        lay_custom.addWidget(QLabel("Tag usuario:"))
+        self._custom_user_edit = QLineEdit()
+        self._custom_user_edit.setText("[USER]")
+        self._custom_user_edit.setFixedWidth(100)
+        lay_custom.addWidget(self._custom_user_edit)
+        lay_custom.addWidget(QLabel("Tag personaje:"))
+        self._custom_char_edit = QLineEdit()
+        self._custom_char_edit.setText("[CHAR]")
+        self._custom_char_edit.setFixedWidth(100)
+        lay_custom.addWidget(self._custom_char_edit)
+        lay_custom.addStretch()
+        self._custom_tags_widget.setVisible(False)
+        lay_tagger_opts.addWidget(self._custom_tags_widget)
+
+        # Indicador de estado del modelo
+        self._lang_status_label = QLabel("")
+        self._lang_status_label.setObjectName("help-text")
+        lay_tagger_opts.addWidget(self._lang_status_label)
+
+        self._tagger_options.setVisible(False)
+        lay_tagger.addWidget(self._tagger_options)
+
+        root.addWidget(grp_tagger)
+
+        # ── Sección 4: Token Analyzer ─────────────────────────────────────────
+        grp_token = QGroupBox("Análisis de tokens (Token Analyzer)")
+        lay_token = QVBoxLayout(grp_token)
+        lay_token.setSpacing(8)
+
+        # Checkbox principal
+        row_token_chk = QHBoxLayout()
+        self._token_check = QCheckBox("Activar Token Analyzer")
+        self._token_check.setChecked(False)
+        self._token_check.toggled.connect(self._on_token_toggled)
+        row_token_chk.addWidget(self._token_check)
+        row_token_chk.addStretch()
+        lay_token.addLayout(row_token_chk)
+
+        # Descripción
+        lbl_token_desc = QLabel(
+            "Filtra entradas cuya respuesta excede el límite de tokens del modelo "
+            "objetivo. Las entradas que exceden se archivan en overlength.jsonl "
+            "(recuperables). Incluye reporte de distribución con percentiles."
+        )
+        lbl_token_desc.setWordWrap(True)
+        lbl_token_desc.setObjectName("help-text")
+        lay_token.addWidget(lbl_token_desc)
+
+        # Opciones (se ocultan cuando el checkbox está desmarcado)
+        self._token_options = QWidget()
+        lay_token_opts = QVBoxLayout(self._token_options)
+        lay_token_opts.setContentsMargins(0, 0, 0, 0)
+        lay_token_opts.setSpacing(8)
+
+        # Preset de modelo
+        row_preset_token = QHBoxLayout()
+        row_preset_token.addWidget(QLabel("Modelo objetivo:"))
+        self._token_preset_combo = QComboBox()
+        for label, key in [
+            ("tiny   — 1B–3B    (Phi-3 mini, Gemma 2B)         límite: 1 024 tokens", "tiny"),
+            ("small  — 7B–9B    (LLaMA 3 8B, Mistral 7B)       límite: 2 048 tokens", "small"),
+            ("medium — 13B–30B  (Qwen 14B, Mistral Nemo 12B)   límite: 4 096 tokens", "medium"),
+            ("large  — 70B+     (LLaMA 3 70B, Qwen 72B)        límite: 8 192 tokens", "large"),
+        ]:
+            self._token_preset_combo.addItem(label, key)
+        self._token_preset_combo.setCurrentIndex(1)   # small por defecto
+        row_preset_token.addWidget(self._token_preset_combo)
+        row_preset_token.addStretch()
+        lay_token_opts.addLayout(row_preset_token)
+
+        # Tokenizer avanzado (opcional)
+        row_tokenizer = QHBoxLayout()
+        row_tokenizer.addWidget(QLabel("Tokenizer (avanzado):"))
+        self._tokenizer_edit = QLineEdit()
+        self._tokenizer_edit.setPlaceholderText(
+            "Vacío → proxy de chars (recomendado para modelos locales)"
+        )
+        self._tokenizer_edit.setToolTip(
+            "Para LLaMA, Mistral, Qwen, Phi y similares:\n"
+            "  Deja vacío. El proxy (~4 chars/token) es suficiente para filtrar\n"
+            "  overlength en datasets de fine-tuning.\n"
+            "\n"
+            "Conteo exacto (avanzado — requiere: pip install transformers):\n"
+            "  meta-llama/Meta-Llama-3-8B\n"
+            "  mistralai/Mistral-7B-v0.1\n"
+            "  Qwen/Qwen2-7B\n"
+            "  microsoft/Phi-3-mini-4k-instruct\n"
+            "\n"
+            "⚠  tiktoken solo funciona con modelos GPT de OpenAI, no con modelos locales."
+        )
+        row_tokenizer.addWidget(self._tokenizer_edit)
+        lay_token_opts.addLayout(row_tokenizer)
+
+        self._token_options.setVisible(False)
+        lay_token.addWidget(self._token_options)
+
+        root.addWidget(grp_token)
+
+        # ── Sección 5: Acción ─────────────────────────────────────────────────
         sep = QFrame()
         sep.setFrameShape(QFrame.HLine)
         root.addWidget(sep)
@@ -214,9 +365,56 @@ class CuratorPanel(QWidget):
         )
         if path:
             self._input_edit.setText(path)
+            self._update_lang_status(path)
 
     def _on_sys_prompt_toggled(self, checked: bool) -> None:
         self._sys_prompt_options.setVisible(checked)
+
+    def _on_tagger_toggled(self, checked: bool) -> None:
+        self._tagger_options.setVisible(checked)
+        if checked:
+            self._update_lang_status(self._input_edit.text())
+
+    def _on_token_toggled(self, checked: bool) -> None:
+        self._token_options.setVisible(checked)
+
+    def _on_preset_changed(self, _index: int) -> None:
+        self._custom_tags_widget.setVisible(
+            self._preset_combo.currentData() == "custom"
+        )
+
+    def _update_lang_status(self, input_path: str) -> None:
+        """Actualiza el indicador de estado del modelo spaCy según el roster detectado."""
+        if not input_path:
+            return
+        from pathlib import Path
+        roster_path = find_roster(input_path)
+        if roster_path:
+            import json
+            try:
+                with open(roster_path, encoding="utf-8") as f:
+                    roster = json.load(f)
+                lang = roster.get("language", "en")
+                if is_installed(lang):
+                    self._lang_status_label.setText(
+                        f"✓ Modelo '{lang}' instalado y listo."
+                    )
+                else:
+                    self._lang_status_label.setText(
+                        f"⚠ Modelo '{lang}' no instalado — "
+                        f"descárgalo desde la pestaña Idiomas."
+                    )
+            except Exception:
+                self._lang_status_label.setText("No se pudo leer el roster de personajes.")
+        else:
+            self._lang_status_label.setText(
+                "No se encontró el archivo de personajes junto al dataset.\n"
+                "Ejecuta el scraper para generarlo."
+            )
+
+    def refresh_language_status(self) -> None:
+        """Llamado desde LanguagesPanel cuando cambia el estado de instalación."""
+        self._update_lang_status(self._input_edit.text())
 
     def _run(self) -> None:
         input_path = self._input_edit.text().strip()
@@ -235,13 +433,40 @@ class CuratorPanel(QWidget):
         if not formats:
             formats = ["jsonl"]   # fallback
 
-        sys_enabled = self._sys_prompt_check.isChecked()
+        sys_enabled    = self._sys_prompt_check.isChecked()
+        tagger_enabled = self._tagger_check.isChecked()
+
+        # Resolver roster_path si el tagger está activo
+        roster_path: str | None = None
+        if tagger_enabled:
+            found = find_roster(input_path)
+            roster_path = str(found) if found else None
+
+        # Tags del Name Tagger
+        preset = self._preset_combo.currentData()
+        if preset == "custom":
+            user_tag = self._custom_user_edit.text() or "[USER]"
+            char_tag = self._custom_char_edit.text() or "[CHAR]"
+        else:
+            user_tag, char_tag = TAG_PRESETS.get(preset, ("{{user}}", "{{char}}"))
+
+        token_enabled = self._token_check.isChecked()
+        tokenizer_name = self._tokenizer_edit.text().strip() or None
+
         config = CuratorConfig(
             min_chars=self._min_chars_spin.value(),
             output_format=self._fmt_combo.currentData(),
             system_prompt_enabled=sys_enabled,
             system_prompt_template=self._sys_template_edit.text().strip() or None,
             system_prompt_ratio=self._ratio_spin.value() / 100.0,
+            name_tagging_enabled=tagger_enabled,
+            name_tag_preset=preset,
+            name_tag_user=user_tag,
+            name_tag_char=char_tag,
+            name_tag_roster_path=roster_path,
+            token_analyzer_enabled=token_enabled,
+            token_preset=self._token_preset_combo.currentData(),
+            tokenizer_name=tokenizer_name,
         )
 
         personality = self._personality_edit.toPlainText().strip() if sys_enabled else ""

@@ -7,6 +7,72 @@ from modules.scraper.parser import parse_dialogue, detect_format, DialogueLine
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Muestras para multi-párrafo
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Speaker con texto inicial + continuación en líneas siguientes
+SAMPLE_MULTIPARAGRAPH_WITH_INITIAL = """\
+'''Marinette:''' No puedo creer lo que pasó hoy.
+Fue el peor día de mi vida.
+De verdad. El peor.
+'''Alya:''' ¿Tan malo fue?
+'''Marinette:''' Sí. Pero mañana será mejor.
+"""
+
+# Speaker sin texto inicial + varias líneas de continuación
+SAMPLE_MULTIPARAGRAPH_NO_INITIAL = """\
+'''Marinette:'''
+No puedo creer lo que pasó hoy.
+Fue el peor día de mi vida.
+'''Alya:''' ¿Tan malo fue?
+"""
+
+# Línea en blanco interrumpe la acumulación
+SAMPLE_MULTIPARAGRAPH_BLANK_INTERRUPT = """\
+'''Marinette:''' Primera línea.
+Segunda línea.
+
+'''Alya:''' ¡Hola!
+'''Marinette:''' No sé nada de eso.
+"""
+
+# Action line interrumpe la acumulación
+SAMPLE_MULTIPARAGRAPH_ACTION_INTERRUPT = """\
+'''Marinette:''' Primera parte del discurso.
+''[Marinette hace una pausa]''
+'''Marinette:''' Segunda parte, separada por la acción.
+"""
+
+# Línea de narrador en cursiva (no es action line completa) no contamina el diálogo
+SAMPLE_NARRATOR_ANNOTATION = """\
+'''Chat Noir:''' ¿Lista, Milady?
+''Mi-lady'' es un apodo cariñoso.
+'''Ladybug:''' Siempre lista.
+"""
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Muestra realista de wikitext de Miraculous Ladybug
+# ─────────────────────────────────────────────────────────────────────────────
+
+SAMPLE_REALISTIC_ML = """\
+==Intro==
+''[Marinette está en su cuarto]''
+'''Marinette:''' [narrando] Cada día tomo la misma ruta al colegio.
+Y cada día pienso en Adrien.
+
+==Escena 1==
+'''Alya:''' ¡Marinette! ¿Escuchaste? ¡Hay un akuma en el centro!
+'''Marinette:''' ¿Qué? Necesito encontrar un lugar para transformarme.
+¡Te veo en la entrada del colegio!
+''[Marinette corre hacia un callejón]''
+'''Marinette:''' ¡Tikki, puntos activados!
+''[Se transforma en Ladybug]''
+'''Ladybug:''' ¡Vamos allá!
+'''Alya:''' [al teléfono] ¡No puedo creer que me perdí la transformación otra vez!
+"""
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Muestras hardcodeadas — Formato bold-colon
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -163,3 +229,103 @@ class TestDialogueLine:
         line = DialogueLine(speaker=None, text="Marinette voltea", is_action=True)
         assert line.speaker is None
         assert line.is_action
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Tests de multi-párrafo
+# ─────────────────────────────────────────────────────────────────────────────
+
+class TestMultiParagraph:
+    def test_continuation_lines_merged_into_speaker_text(self):
+        """Tres líneas de continuación se unen al texto inicial del speaker."""
+        lines, _ = parse_dialogue(SAMPLE_MULTIPARAGRAPH_WITH_INITIAL, format_hint="bold-colon")
+        marinette = [l for l in lines if l.speaker == "Marinette" and not l.is_action]
+        # La primera intervención de Marinette tiene el texto de las 3 líneas fusionadas
+        first = marinette[0]
+        assert "No puedo creer" in first.text
+        assert "peor día" in first.text
+        assert "De verdad" in first.text
+
+    def test_continuation_without_initial_text(self):
+        """Speaker line sin texto inicial acumula las líneas siguientes."""
+        lines, _ = parse_dialogue(SAMPLE_MULTIPARAGRAPH_NO_INITIAL, format_hint="bold-colon")
+        marinette = [l for l in lines if l.speaker == "Marinette"]
+        assert len(marinette) == 1
+        assert "No puedo creer" in marinette[0].text
+        assert "peor día" in marinette[0].text
+
+    def test_blank_line_ends_accumulation(self):
+        """Una línea en blanco cierra el párrafo; el texto posterior no se fusiona."""
+        lines, _ = parse_dialogue(SAMPLE_MULTIPARAGRAPH_BLANK_INTERRUPT, format_hint="bold-colon")
+        marinette_lines = [l for l in lines if l.speaker == "Marinette" and not l.is_action]
+        # La segunda intervención de Marinette es una entrada separada
+        assert len(marinette_lines) == 2
+        assert "Primera línea" in marinette_lines[0].text
+        assert "Segunda línea" in marinette_lines[0].text
+        assert "No sé nada" in marinette_lines[1].text
+
+    def test_action_line_ends_accumulation(self):
+        """Una action line interrumpe la acumulación y genera dos entradas separadas."""
+        lines, _ = parse_dialogue(SAMPLE_MULTIPARAGRAPH_ACTION_INTERRUPT, format_hint="bold-colon")
+        dialogue = [l for l in lines if not l.is_action]
+        actions = [l for l in lines if l.is_action]
+        assert len(dialogue) == 2
+        assert len(actions) == 1
+        assert "Primera parte" in dialogue[0].text
+        assert "Segunda parte" in dialogue[1].text
+
+    def test_narrator_annotation_not_merged(self):
+        """Línea de anotación narrativa (empieza con '') no se fusiona al diálogo."""
+        lines, _ = parse_dialogue(SAMPLE_NARRATOR_ANNOTATION, format_hint="bold-colon")
+        chat = [l for l in lines if l.speaker == "Chat Noir"]
+        assert len(chat) == 1
+        # La anotación no debe aparecer en el texto de Chat Noir
+        assert "apodo" not in chat[0].text
+
+    def test_consecutive_speakers_no_bleed(self):
+        """Dos speakers consecutivos no comparten texto entre sí."""
+        lines, _ = parse_dialogue(SAMPLE_MULTIPARAGRAPH_WITH_INITIAL, format_hint="bold-colon")
+        alya = [l for l in lines if l.speaker == "Alya"]
+        assert len(alya) == 1
+        assert "¿Tan malo fue?" in alya[0].text
+        # El texto de Marinette no debe aparecer en Alya
+        assert "peor día" not in alya[0].text
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Tests con wikitext realista de Miraculous Ladybug
+# ─────────────────────────────────────────────────────────────────────────────
+
+class TestRealWorldWikitext:
+    def setup_method(self):
+        self.lines, self.fmt = parse_dialogue(SAMPLE_REALISTIC_ML, format_hint="bold-colon")
+
+    def test_format_detected(self):
+        assert self.fmt == "bold-colon"
+
+    def test_section_headers_not_captured(self):
+        """Los headers de sección (== Título ==) no se capturan como diálogo."""
+        for line in self.lines:
+            assert "==" not in (line.text or "")
+            assert "==" not in (line.speaker or "")
+
+    def test_action_lines_detected(self):
+        actions = [l for l in self.lines if l.is_action]
+        assert len(actions) >= 2
+
+    def test_speakers_correctly_identified(self):
+        speakers = {l.speaker for l in self.lines if not l.is_action}
+        assert "Marinette" in speakers or "Ladybug" in speakers
+        assert "Alya" in speakers
+
+    def test_multiline_speech_merged(self):
+        """La intervención de Marinette con continuación se captura completa."""
+        marinette_turns = [l for l in self.lines if l.speaker == "Marinette" and not l.is_action]
+        # La primera intervención tiene la continuación "Y cada día pienso en Adrien."
+        first = marinette_turns[0]
+        assert "Cada día" in first.text or "cada día" in first.text
+        assert "Adrien" in first.text
+
+    def test_no_empty_lines(self):
+        for line in self.lines:
+            assert line.text.strip() != ""

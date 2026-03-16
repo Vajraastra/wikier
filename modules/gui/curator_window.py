@@ -18,10 +18,12 @@ from PySide6.QtWidgets import (
 )
 
 from modules.gui.panels.curator_panel import CuratorPanel
+from modules.gui.panels.languages_panel import LanguagesPanel
 
 
 _NAV_ITEMS = [
     ("Curación", 0),
+    ("Idiomas",  1),
 ]
 
 
@@ -95,6 +97,12 @@ class CuratorWidget(QWidget):
         self._stack = QStackedWidget()
         self._curator_panel = CuratorPanel()
         self._stack.addWidget(self._curator_panel)   # 0
+
+        self._languages_panel = LanguagesPanel()
+        self._languages_panel.models_changed.connect(
+            self._curator_panel.refresh_language_status
+        )
+        self._stack.addWidget(self._languages_panel)  # 1
 
         root.addWidget(self._stack)
 

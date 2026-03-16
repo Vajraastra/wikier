@@ -434,6 +434,7 @@ class ScrapePanel(QWidget):
             rate_limit      = profile.get("rate_limit_seconds", 0.5) if profile else 0.5,
             format_hint     = profile.get("dialogue_format", "auto") if profile else "auto",
             formats         = formats,
+            profile         = profile or {},
         )
         self._extract_worker.progress.connect(self._on_extract_progress)
         self._extract_worker.finished.connect(self._on_extract_finished)

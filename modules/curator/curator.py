@@ -66,6 +66,16 @@ class CuratorConfig:
     token_preset: str = "small"           # tiny|small|medium|large
     tokenizer_name: Optional[str] = None  # None → cuenta chars como proxy
 
+    # — Name Tagger (opcional)
+    # Reemplaza nombres de personajes secundarios por tags genéricos.
+    # El personaje principal nunca se reemplaza.
+    name_tagging_enabled: bool = False
+    name_tag_preset: str = "sillytavern"  # sillytavern|oobabooga|generic|custom
+    name_tag_user: str = "{{user}}"       # solo aplica si preset == "custom"
+    name_tag_char: str = "{{char}}"       # solo aplica si preset == "custom"
+    # Ruta al {Character}_characters.json. None → búsqueda automática junto al input.
+    name_tag_roster_path: Optional[str] = None
+
     # — System prompt (opcional)
     system_prompt_enabled: bool = True
     system_prompt_template: Optional[str] = None   # None → auto-selección
@@ -165,11 +175,35 @@ def curate(
     )
     dupe_count = sum(len(v) for v in dupes.values())
 
+    # ── Paso 4b: Name Tagger (opcional) ──────────────────────────────────────
+    if config.name_tagging_enabled:
+        _report(55, "Etiquetando nombres de personajes...")
+        from modules.curator import name_tagger
+        from modules.curator.name_tagger import TAG_PRESETS, load_roster
+
+        # Resolver tags según preset
+        if config.name_tag_preset in TAG_PRESETS:
+            user_tag, char_tag = TAG_PRESETS[config.name_tag_preset]
+        else:
+            user_tag = config.name_tag_user
+            char_tag = config.name_tag_char
+
+        # Cargar roster (path explícita o buscar junto al input)
+        roster: dict | None = None
+        if config.name_tag_roster_path:
+            roster = load_roster(config.name_tag_roster_path)
+
+        if roster is not None:
+            lang = roster.get("language", profile.get("language", "en"))
+            unique = name_tagger.tag_dataset(unique, roster, lang, user_tag, char_tag)
+        # Si no hay roster, este paso se omite silenciosamente
+
     # ── Paso 5: Token analyzer (opcional) ────────────────────────────────────
+    _token_report = ""
     if config.token_analyzer_enabled:
         _report(60, f"Analizando tokens (preset: {config.token_preset})...")
         from modules.curator import token_analyzer
-        unique, overlength = token_analyzer.filter_sets(
+        unique, overlength, _token_report = token_analyzer.filter_sets(
             unique,
             preset=config.token_preset,
             tokenizer_name=config.tokenizer_name,
@@ -224,6 +258,8 @@ def curate(
         duplicate_count=dupe_count,
     )
     report = stats.format_report(pipeline_stats)
+    if _token_report:
+        report = report + "\n\n" + _token_report
 
     _report(100, "Curación completada.")
 

@@ -92,39 +92,66 @@ def detect_format(wikitext: str) -> str:
 def _parse_bold_colon(wikitext: str) -> list[DialogueLine]:
     """
     Extrae líneas de diálogo en formato bold-colon.
-    También captura action lines en cursiva entre líneas de diálogo.
+    Soporta parlamentos multi-párrafo: las líneas de texto plano que siguen a
+    una línea de speaker se acumulan como continuación hasta que aparece una
+    línea en blanco, una nueva línea de speaker, una action line o marcado
+    estructural de wikitext.
     """
-    lines = []
+    lines: list[DialogueLine] = []
+    pending_speaker: str | None = None
+    pending_parts: list[str] = []
+    pending_raw: str = ""
+
+    def _flush() -> None:
+        nonlocal pending_speaker, pending_parts, pending_raw
+        if pending_speaker is not None:
+            text = " ".join(pending_parts).strip()
+            if text:
+                lines.append(DialogueLine(speaker=pending_speaker, text=text, raw=pending_raw))
+        pending_speaker = None
+        pending_parts = []
+        pending_raw = ""
 
     for raw_line in wikitext.split("\n"):
-        # Intento de speaker line: '''Name:''' texto
-        match = _BOLD_COLON_RE.match(raw_line.strip())
+        stripped = raw_line.strip()
+
+        # Línea de diálogo: '''Name:''' [texto inicial]
+        match = _BOLD_COLON_RE.match(stripped)
         if match:
-            speaker = _clean_text(match.group(1))
-            text = _clean_text(match.group(2))
-            if text:
-                lines.append(DialogueLine(speaker=speaker, text=text, raw=raw_line))
-            else:
-                # Línea de speaker sin texto inmediato — el texto viene en la siguiente línea
-                # Se guarda el speaker para que el bloque siguiente lo adjunte
-                lines.append(DialogueLine(speaker=speaker, text="", raw=raw_line))
+            _flush()
+            pending_speaker = _clean_text(match.group(1))
+            initial_text = _clean_text(match.group(2))
+            pending_parts = [initial_text] if initial_text else []
+            pending_raw = raw_line
             continue
 
-        # Action line en cursiva: ''[acción]'' o ''narración''
+        # Action line en cursiva (línea completa): ''[acción]''
         action_match = _ACTION_LINE_RE.match(raw_line)
         if action_match:
+            _flush()
             text = _clean_text(action_match.group(1))
             if text:
                 lines.append(DialogueLine(speaker=None, text=text, is_action=True, raw=raw_line))
             continue
 
-        # Texto de continuación: si la última línea tenía speaker pero no texto
-        if lines and lines[-1].speaker and not lines[-1].text:
-            text = _clean_text(raw_line.strip())
-            if text and not text.startswith("{") and not text.startswith("|"):
-                lines[-1].text = text
+        # Línea en blanco → cierra el párrafo actual
+        if not stripped:
+            _flush()
+            continue
 
-    # Descartar entradas sin texto
+        # Marcado estructural de wikitext: headers, templates, tablas, links
+        # de archivo/categoría, o líneas que empiezan en cursiva (anotaciones de narrador)
+        if stripped.startswith(("=", "{", "|", "!", "''", "[")):
+            _flush()
+            continue
+
+        # Continuación del parlamento: texto plano tras una línea de speaker
+        if pending_speaker is not None:
+            text = _clean_text(stripped)
+            if text:
+                pending_parts.append(text)
+
+    _flush()
     return [l for l in lines if l.text]
 
 
