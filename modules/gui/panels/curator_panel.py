@@ -80,18 +80,29 @@ class CuratorPanel(QWidget):
                             ("JSONL crudo", "jsonl_raw")]:
             self._fmt_combo.addItem(label, val)
         self._fmt_combo.setMinimumWidth(240)
+        self._fmt_combo.currentIndexChanged.connect(self._on_fmt_changed)
         row_fmt.addWidget(self._fmt_combo)
         row_fmt.addStretch()
         lay_config.addLayout(row_fmt)
+
+        # Ayuda dinámica del formato seleccionado
+        self._fmt_help_lbl = QLabel()
+        self._fmt_help_lbl.setWordWrap(True)
+        self._fmt_help_lbl.setObjectName("help-text")
+        lay_config.addWidget(self._fmt_help_lbl)
+        self._on_fmt_changed(0)   # inicializar con el valor por defecto
 
         # Formatos de salida (checkboxes)
         row_out = QHBoxLayout()
         row_out.addWidget(QLabel("Guardar como:"))
         self._chk_jsonl = QCheckBox("JSONL")
         self._chk_jsonl.setChecked(True)
+        self._chk_jsonl.setToolTip("Formato principal para entrenamiento. Requerido por todos los frameworks (LLaMA-Factory, Axolotl, Unsloth).")
         self._chk_csv   = QCheckBox("CSV")
         self._chk_csv.setChecked(True)
+        self._chk_csv.setToolTip("Tabla editable en Excel o LibreOffice Calc. Útil para rellenar manualmente el campo 'instruction' (la pregunta que el usuario le haría al personaje).")
         self._chk_txt   = QCheckBox("TXT")
+        self._chk_txt.setToolTip("Formato legible por humanos con bloques [USER] / [CHAR]. Útil para revisar el dataset visualmente antes de entrenar.")
         row_out.addWidget(self._chk_jsonl)
         row_out.addWidget(self._chk_csv)
         row_out.addWidget(self._chk_txt)
@@ -110,11 +121,30 @@ class CuratorPanel(QWidget):
         self._min_chars_spin.setRange(1, 500)
         self._min_chars_spin.setValue(10)
         self._min_chars_spin.setFixedWidth(70)
+        self._min_chars_spin.setToolTip(
+            "Descarta respuestas más cortas que este número de caracteres.\n"
+            "Las respuestas muy cortas ('Sí.', 'No sé.') aportan poco al entrenamiento\n"
+            "y pueden degradar la calidad del modelo.\n\n"
+            "Recomendado: 10–20 chars.\n"
+            "Subir a 30+ si el personaje habla en oraciones completas y quieres descartar monosílabos."
+        )
         row_quality.addWidget(self._min_chars_spin)
+        lbl_quality_hint = QLabel("— respuestas más cortas se descartan del dataset")
+        lbl_quality_hint.setObjectName("help-text")
+        row_quality.addWidget(lbl_quality_hint)
         row_quality.addStretch()
         lay_config.addLayout(row_quality)
 
-        # System prompt — checkbox principal
+        # System prompt — explicación + checkbox
+        lbl_sys_explain = QLabel(
+            "El system prompt es el mensaje inicial que le dice al modelo quién debe ser "
+            "durante el chat (\"Eres Marinette, personaje de Miraculous Ladybug...\"). "
+            "Sin él, el modelo no sabrá qué rol asumir. Se recomienda dejarlo activado."
+        )
+        lbl_sys_explain.setWordWrap(True)
+        lbl_sys_explain.setObjectName("help-text")
+        lay_config.addWidget(lbl_sys_explain)
+
         row_sys = QHBoxLayout()
         self._sys_prompt_check = QCheckBox("Incluir system prompt")
         self._sys_prompt_check.setChecked(True)
@@ -146,11 +176,24 @@ class CuratorPanel(QWidget):
         row_ratio.addStretch()
         lay_sys.addLayout(row_ratio)
 
-        lbl_tpl = QLabel("Template del system prompt (dejar vacío para auto):")
+        lbl_tpl = QLabel(
+            "Template personalizado (dejar vacío para generación automática):\n"
+            "Variables disponibles: {character}  {show}  {aliases}  {personality}"
+        )
+        lbl_tpl.setObjectName("help-text")
         lay_sys.addWidget(lbl_tpl)
         self._sys_template_edit = QLineEdit()
         self._sys_template_edit.setPlaceholderText(
             "Ej: You are {character} from {show}. {personality}"
+        )
+        self._sys_template_edit.setToolTip(
+            "Si lo dejas vacío, el sistema construye el prompt automáticamente\n"
+            "usando los campos activados en 'system_prompt_fields' del perfil.\n\n"
+            "Variables disponibles:\n"
+            "  {character}  — nombre del personaje\n"
+            "  {show}       — nombre del show/wiki\n"
+            "  {aliases}    — lista de alter egos (ej: Ladybug, Marinette)\n"
+            "  {personality}— descripción de personalidad (del campo de abajo)"
         )
         lay_sys.addWidget(self._sys_template_edit)
 
@@ -357,6 +400,18 @@ class CuratorPanel(QWidget):
     # ─────────────────────────────────────────────────────────────────────────
     # Handlers
     # ─────────────────────────────────────────────────────────────────────────
+
+    # Mensajes de ayuda por formato — explican qué es cada formato y quién lo usa
+    _FMT_HELP: dict[str, str] = {
+        "chatml":    "Recomendado para la mayoría de usuarios. Compatible con LLaMA-Factory, Axolotl, Unsloth y casi todos los frameworks modernos. Estructura: system → user → assistant.",
+        "alpaca":    "Formato clásico de instrucción/respuesta. Compatible con frameworks más antiguos. Buena opción si tu trainer solo acepta Alpaca.",
+        "sharegpt":  "Multi-turno por defecto. Usado en conjuntos de datos de conversaciones largas. Elige este si tu trainer lo requiere explícitamente.",
+        "jsonl_raw": "Formato mínimo sin estructura de roles. Útil para edición manual o como paso intermedio. No incluye información de roles (system/user/assistant).",
+    }
+
+    def _on_fmt_changed(self, _index: int) -> None:
+        key = self._fmt_combo.currentData()
+        self._fmt_help_lbl.setText(self._FMT_HELP.get(key, ""))
 
     def _browse_input(self) -> None:
         start_dir = str(OUTPUT_DIR) if OUTPUT_DIR.exists() else "."

@@ -319,7 +319,7 @@ QLabel#footer-label {
 /* ── Textos de ayuda ─────────────────────────────────────────────────────── */
 
 QLabel#help-text {
-    color: #585b70;
+    color: #7c7f96;
     font-size: 11px;
 }
 

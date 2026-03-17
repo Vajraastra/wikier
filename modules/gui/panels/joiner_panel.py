@@ -108,9 +108,17 @@ class JoinerPanel(QWidget):
         for key, meta in OBJECTIVES.items():
             self._obj_combo.addItem(f"{key}  —  {meta['label']}", key)
         self._obj_combo.setMinimumWidth(280)
+        self._obj_combo.currentIndexChanged.connect(self._on_obj_changed)
         row_obj.addWidget(self._obj_combo)
         row_obj.addStretch()
         lay.addLayout(row_obj)
+
+        # Ayuda dinámica del objetivo
+        self._obj_help_lbl = QLabel()
+        self._obj_help_lbl.setWordWrap(True)
+        self._obj_help_lbl.setObjectName("help-text")
+        lay.addWidget(self._obj_help_lbl)
+        self._on_obj_changed(0)   # inicializar
 
         # — Split
         row_split = QHBoxLayout()
@@ -130,6 +138,16 @@ class JoinerPanel(QWidget):
         row_split.addStretch()
         lay.addLayout(row_split)
 
+        lbl_split_explain = QLabel(
+            "Train: el modelo aprende de estas entradas.  "
+            "Val (Validación): mide el progreso durante el entrenamiento sin aprender de ellas.  "
+            "Test: evaluación final del modelo. "
+            "Para la mayoría de casos, 80 / 10 / 10 funciona bien."
+        )
+        lbl_split_explain.setWordWrap(True)
+        lbl_split_explain.setObjectName("help-text")
+        lay.addWidget(lbl_split_explain)
+
         # — Seed + Límite
         row_opts = QHBoxLayout()
         row_opts.addWidget(QLabel("Seed:"))
@@ -140,6 +158,11 @@ class JoinerPanel(QWidget):
         self._seed_spin.setToolTip(
             "Semilla aleatoria para el shuffle. Misma seed = mismo orden siempre.\n"
             "Útil para reproducir experimentos."
+        )
+        self._seed_spin.setToolTip(
+            "Fija el orden de mezcla aleatoria.\n"
+            "La misma seed siempre produce exactamente el mismo dataset.\n"
+            "Útil si quieres reproducir un experimento o comparar configuraciones."
         )
         row_opts.addWidget(self._seed_spin)
         row_opts.addSpacing(24)
@@ -248,6 +271,29 @@ class JoinerPanel(QWidget):
     # ─────────────────────────────────────────────────────────────────────────
     # Handlers de UI
     # ─────────────────────────────────────────────────────────────────────────
+
+    # Mensajes de ayuda por objetivo
+    _OBJ_HELP: dict[str, str] = {
+        "dialogue": (
+            "Incluye solo diálogo limpio — líneas donde el personaje habla sin mezclar "
+            "acciones ni pensamientos. Ideal si quieres que el modelo aprenda a conversar "
+            "de forma natural, como un chatbot."
+        ),
+        "roleplay": (
+            "Incluye diálogo limpio y líneas que mezclan habla con acciones (*acción*) o "
+            "pensamientos internos. Ideal para bots de roleplay narrativo donde el "
+            "personaje describe lo que hace además de hablar."
+        ),
+        "both": (
+            "Balance entre conversación pura y roleplay. El 70% son líneas de diálogo "
+            "limpio y el 30% incluyen acciones o pensamientos. Buena opción si no estás "
+            "seguro de cuál es tu caso de uso."
+        ),
+    }
+
+    def _on_obj_changed(self, _index: int) -> None:
+        key = self._obj_combo.currentData()
+        self._obj_help_lbl.setText(self._OBJ_HELP.get(key, ""))
 
     def _browse_dir(self) -> None:
         path = QFileDialog.getExistingDirectory(
