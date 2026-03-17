@@ -9,12 +9,11 @@ Señales:
 """
 from PySide6.QtCore    import Qt, Signal
 from PySide6.QtWidgets import (
-    QApplication, QComboBox, QFrame, QHBoxLayout,
+    QFrame, QHBoxLayout,
     QLabel, QPushButton, QVBoxLayout, QWidget,
 )
 
-from modules.core        import i18n, settings, themes
-from modules.core.i18n   import t
+from modules.core.i18n import t
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -159,59 +158,10 @@ class DashboardPanel(QWidget):
 
         footer.addStretch()
 
-        # Selector de idioma
-        lang_lbl = QLabel(t("label.language") + ":")
-        lang_lbl.setObjectName("footer-label")
-        footer.addWidget(lang_lbl)
-
-        self._lang_combo = QComboBox()
-        self._lang_combo.setFixedWidth(120)
-        for code, display in i18n.available_langs():
-            self._lang_combo.addItem(display, code)
-        # Seleccionar idioma activo
-        current = settings.get("language", "es")
-        idx = self._lang_combo.findData(current)
-        if idx >= 0:
-            self._lang_combo.setCurrentIndex(idx)
-        self._lang_combo.currentIndexChanged.connect(self._on_lang_changed)
-        footer.addWidget(self._lang_combo)
-
-        footer.addSpacing(16)
-
-        # Selector de tema
-        theme_lbl = QLabel(t("label.theme") + ":")
-        theme_lbl.setObjectName("footer-label")
-        footer.addWidget(theme_lbl)
-
-        self._theme_combo = QComboBox()
-        self._theme_combo.setFixedWidth(110)
-        for name, display in themes.list_themes():
-            self._theme_combo.addItem(display, name)
-        current_theme = settings.get("theme", "default")
-        tidx = self._theme_combo.findData(current_theme)
-        if tidx >= 0:
-            self._theme_combo.setCurrentIndex(tidx)
-        self._theme_combo.currentIndexChanged.connect(self._on_theme_changed)
-        footer.addWidget(self._theme_combo)
+        btn_settings = QPushButton("⚙  " + t("settings.title"))
+        btn_settings.setProperty("role", "nav")
+        btn_settings.setFixedHeight(28)
+        btn_settings.clicked.connect(lambda: self.module_selected.emit("settings"))
+        footer.addWidget(btn_settings)
 
         root.addLayout(footer)
-
-    # ── Handlers ──────────────────────────────────────────────────────────────
-
-    def _on_lang_changed(self, _index: int) -> None:
-        lang = self._lang_combo.currentData()
-        settings.set("language", lang)
-        # El idioma se aplica al reiniciar; mostrar aviso al usuario
-        from PySide6.QtWidgets import QToolTip
-        QToolTip.showText(
-            self._lang_combo.mapToGlobal(self._lang_combo.rect().bottomLeft()),
-            t("label.restart_required"),
-            self._lang_combo,
-        )
-
-    def _on_theme_changed(self, _index: int) -> None:
-        theme_name = self._theme_combo.currentData()
-        settings.set("theme", theme_name)
-        app = QApplication.instance()
-        if app:
-            themes.apply(app, theme_name)

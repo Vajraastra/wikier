@@ -38,5 +38,9 @@
   "theme.default": "Oscuro",
   "theme.light":   "Claro",
 
+  "settings.title":      "Ajustes",
+  "settings.appearance": "Apariencia",
+  "settings.theme_live": "Se aplica en tiempo real",
+
   "status.ready": "Listo"
 }

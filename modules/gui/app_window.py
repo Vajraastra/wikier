@@ -102,4 +102,10 @@ class AppWindow(QMainWindow):
             widget.back_requested.connect(self.show_dashboard)
             return widget
 
+        if module_id == "settings":
+            from modules.gui.panels.settings_panel import SettingsPanel
+            widget = SettingsPanel()
+            widget.back_requested.connect(self.show_dashboard)
+            return widget
+
         return None
